@@ -12,6 +12,7 @@
 //! blob on others)
 
 #![no_std]
+#![deny(unused_crate_dependencies)]
 
 #[cfg(any(feature = "std", test))]
 extern crate std;
