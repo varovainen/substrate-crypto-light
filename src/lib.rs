@@ -21,8 +21,8 @@ extern crate std;
 extern crate alloc;
 
 pub mod common;
+#[cfg(feature = "ecdsa")]
+pub mod ecdsa;
 pub mod error;
+#[cfg(feature = "sr25519")]
 pub mod sr25519;
-#[cfg(feature = "std")]
-#[cfg(test)]
-mod tests;
