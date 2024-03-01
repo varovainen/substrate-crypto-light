@@ -1,7 +1,7 @@
-#[cfg(feature = "std")]
+#[cfg(any(feature = "std", test))]
 use std::{string::String, vec::Vec};
 
-#[cfg(not(feature = "std"))]
+#[cfg(all(not(feature = "std"), not(test)))]
 use alloc::{string::String, vec::Vec};
 
 use hmac::Hmac;
@@ -13,6 +13,17 @@ use sha2::Sha512;
 use zeroize::Zeroize;
 
 use crate::error::Error;
+
+pub const HASH_LEN: usize = 32;
+
+pub fn blake2_256(bytes: &[u8]) -> [u8; HASH_LEN] {
+    blake2b_simd::Params::new()
+        .hash_length(HASH_LEN)
+        .hash(bytes)
+        .as_bytes()
+        .try_into()
+        .expect("static length, always fits")
+}
 
 /// Verbatim from `substrate-bip39`.
 pub fn entropy_to_big_seed(entropy: &[u8], password: &str) -> Result<[u8; 64], Error> {
@@ -26,14 +37,16 @@ pub fn entropy_to_big_seed(entropy: &[u8], password: &str) -> Result<[u8; 64], E
 
     let mut seed = [0u8; 64];
 
-    pbkdf2::<Hmac<Sha512>>(entropy, salt.as_bytes(), 2048, &mut seed);
+    let result = pbkdf2::<Hmac<Sha512>>(entropy, salt.as_bytes(), 2048, &mut seed);
 
     salt.zeroize();
 
-    Ok(seed)
+    if result.is_ok() {
+        Ok(seed)
+    } else {
+        Err(Error::Pbkdf2Internal)
+    }
 }
-
-pub const SIGNING_CTX: &[u8] = b"substrate";
 
 lazy_static! {
     static ref REG_PATH_PWD: Regex =
@@ -42,25 +55,18 @@ lazy_static! {
         Regex::new(r"/(?P<derivation>/?[^/]+)").expect("checked value");
 }
 
-pub const JUNCTION_ID_LEN: usize = 32;
-
 #[derive(Debug)]
 pub enum DeriveJunction {
-    Hard([u8; JUNCTION_ID_LEN]),
-    Soft([u8; JUNCTION_ID_LEN]),
+    Hard([u8; HASH_LEN]),
+    Soft([u8; HASH_LEN]),
 }
 
-fn derive_junction_inner<T: Encode>(input: T) -> [u8; JUNCTION_ID_LEN] {
+fn derive_junction_inner<T: Encode>(input: T) -> [u8; HASH_LEN] {
     input.using_encoded(|encoded_input| {
-        if encoded_input.len() > JUNCTION_ID_LEN {
-            blake2b_simd::Params::new()
-                .hash_length(JUNCTION_ID_LEN)
-                .hash(encoded_input)
-                .as_bytes()
-                .try_into()
-                .expect("static length, always fits")
+        if encoded_input.len() > HASH_LEN {
+            blake2_256(encoded_input)
         } else {
-            let mut out = [0u8; JUNCTION_ID_LEN];
+            let mut out = [0u8; HASH_LEN];
             out[0..encoded_input.len()].copy_from_slice(encoded_input);
             out
         }
@@ -80,7 +86,7 @@ impl DeriveJunction {
     pub fn is_hard(&self) -> bool {
         matches!(self, DeriveJunction::Hard(_))
     }
-    pub fn inner(&self) -> [u8; JUNCTION_ID_LEN] {
+    pub fn inner(&self) -> [u8; HASH_LEN] {
         match self {
             DeriveJunction::Hard(inner) | DeriveJunction::Soft(inner) => *inner,
         }
@@ -120,5 +126,61 @@ pub fn cut_path(path_and_pwd: &str) -> Option<FullDerivation<'_>> {
             })
         }
         None => None,
+    }
+}
+
+pub const ALICE_WORDS: &str =
+    "bottom drive obey lake curtain smoke basket hold race lonely fit walk";
+
+#[cfg(any(feature = "std", test))]
+#[cfg(test)]
+mod tests {
+
+    use mnemonic_external::{regular::InternalWordList, WordSet};
+    use sp_core::crypto::DeriveJunction;
+
+    use crate::common::{cut_path, entropy_to_big_seed, ALICE_WORDS};
+
+    #[test]
+    fn cut_path_test() {
+        let path_and_pwd =
+        "//alice/soft//hard//some_extraordinarily_long_derivation_just_for_test///secret_password";
+        let cut = cut_path(path_and_pwd).unwrap();
+        assert_eq!(cut.junctions.len(), 4);
+        assert!(cut.junctions[0].is_hard());
+        assert_eq!(
+            cut.junctions[0].inner(),
+            DeriveJunction::hard("alice").unwrap_inner()
+        );
+        assert!(cut.junctions[1].is_soft());
+        assert_eq!(
+            cut.junctions[1].inner(),
+            DeriveJunction::soft("soft").unwrap_inner()
+        );
+        assert!(cut.junctions[2].is_hard());
+        assert_eq!(
+            cut.junctions[2].inner(),
+            DeriveJunction::hard("hard").unwrap_inner()
+        );
+        assert!(cut.junctions[3].is_hard());
+        assert_eq!(
+            cut.junctions[3].inner(),
+            DeriveJunction::hard("some_extraordinarily_long_derivation_just_for_test")
+                .unwrap_inner()
+        );
+        assert_eq!(cut.password.unwrap(), "secret_password");
+    }
+
+    #[test]
+    fn big_seed_works() {
+        // phrase-to-entropy, with `mnemonic-external`
+        let internal_word_list = InternalWordList;
+        let mut word_set = WordSet::new();
+        for word in ALICE_WORDS.split(' ') {
+            word_set.add_word(word, &internal_word_list).unwrap();
+        }
+        let entropy = word_set.to_entropy().unwrap();
+
+        assert!(entropy_to_big_seed(&entropy, "").is_ok())
     }
 }
