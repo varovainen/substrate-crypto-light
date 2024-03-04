@@ -6,9 +6,10 @@ use alloc::vec;
 
 use k256::ecdsa::{signature::hazmat::PrehashVerifier, SigningKey, VerifyingKey};
 use parity_scale_codec::Encode;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::{
-    common::{blake2_256, entropy_to_big_seed, DeriveJunction, FullDerivation},
+    common::{blake2_256, entropy_to_big_seed, DeriveJunction, FullDerivation, HASH_LEN},
     error::Error,
 };
 
@@ -34,16 +35,19 @@ impl Public {
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Signature(pub [u8; 65]);
 
-pub struct Pair(pub(crate) SigningKey);
+#[derive(ZeroizeOnDrop)]
+pub struct Pair(SigningKey);
 
 impl Pair {
     pub fn from_entropy_and_pwd(entropy: &[u8], pwd: &str) -> Result<Self, Error> {
-        let big_seed = entropy_to_big_seed(entropy, pwd)?;
+        let mut big_seed = entropy_to_big_seed(entropy, pwd)?;
         let mini_secret_bytes = &big_seed[..32];
-        Ok(Pair(
-            SigningKey::from_bytes(mini_secret_bytes.as_ref().into())
-                .map_err(|_| Error::EcdsaPairGen)?,
-        ))
+        let signing_key_result = SigningKey::from_bytes(mini_secret_bytes.as_ref().into());
+        big_seed.zeroize();
+        match signing_key_result {
+            Ok(signing_key) => Ok(Pair(signing_key)),
+            Err(_) => Err(Error::EcdsaPairGen),
+        }
     }
 
     pub fn from_entropy_and_full_derivation(
@@ -54,13 +58,14 @@ impl Pair {
         for junction in full_derivation.junctions.iter() {
             match junction {
                 DeriveJunction::Hard(inner) => {
-                    let seed_as_array: [u8; 32] = pair
-                        .0
-                        .to_bytes()
-                        .as_slice()
-                        .try_into()
-                        .expect("static length");
-                    let bytes = (ID, seed_as_array, inner).using_encoded(blake2_256);
+                    // derivation mixing is done with hash updates, as opposed
+                    // to `using_encoded`, to avoid multiple secret copying
+                    let mut blake2b_state =
+                        blake2b_simd::Params::new().hash_length(HASH_LEN).to_state();
+                    blake2b_state.update(&ID.encode());
+                    blake2b_state.update(pair.0.to_bytes().as_slice());
+                    blake2b_state.update(inner);
+                    let bytes = blake2b_state.finalize();
                     pair = Pair(
                         SigningKey::from_bytes(bytes.as_ref().into())
                             .map_err(|_| Error::EcdsaPairGen)?,
@@ -71,28 +76,32 @@ impl Pair {
         }
         Ok(pair)
     }
-    pub fn sign(&self, msg: &[u8]) -> Signature {
-        let (signature_ecdsa, recid) = self.0.sign_prehash_recoverable(&blake2_256(msg)).unwrap();
-        Signature(
+
+    pub fn sign(&self, msg: &[u8]) -> Result<Signature, Error> {
+        let (signature_ecdsa, recid) = self
+            .0
+            .sign_prehash_recoverable(&blake2_256(msg))
+            .map_err(|_| Error::EcdsaSignatureGen)?;
+        Ok(Signature(
             [
                 signature_ecdsa.to_bytes().as_slice().to_vec(),
                 vec![recid.to_byte()],
             ]
             .concat()
             .try_into()
-            .unwrap(),
-        )
+            .map_err(|_| Error::EcdsaSignatureLength)?,
+        ))
     }
 
-    pub fn public(&self) -> Public {
-        Public(
+    pub fn public(&self) -> Result<Public, Error> {
+        Ok(Public(
             self.0
                 .verifying_key()
                 .to_encoded_point(true)
                 .as_bytes()
                 .try_into()
-                .expect("static length"),
-        )
+                .map_err(|_| Error::EcdsaPublicKeyLength)?,
+        ))
     }
 }
 
@@ -145,8 +154,8 @@ mod tests {
 
         // `ecdsa` pair, public, and signature with `substrate-crypto-light`
         let pair = EcdsaPair::from_entropy_and_full_derivation(&entropy, full_derivation).unwrap();
-        let public = pair.public().0;
-        let signature = pair.sign(msg).0;
+        let public = pair.public().unwrap().0;
+        let signature = pair.sign(msg).unwrap().0;
 
         assert_eq!(public_from_core, public);
 
