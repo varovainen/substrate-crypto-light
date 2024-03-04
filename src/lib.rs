@@ -3,13 +3,13 @@
 //!
 //! Key differences here:
 //!
-//! - no-std compatible with arm,
+//! - no-std compatible with arm
 //! - sr25519 supports external Rng, for usability on baremetal
-//! - ecdsa support based on pure Rust crate `k256` (TODO need to transfer stuff
-//! here from Kampela code, as of now), to avoid compiling difficulties
-//! (original `sp-core` has ecdsa from `secp256k1` C wrapper crate and it does
-//! not compile on certain no-std targets and creates extremely large binary
-//! blob on others)
+//! - ecdsa support based on pure Rust crate `k256`, to avoid `no-std` target
+//! compiling difficulties (original `sp-core` has ecdsa from `secp256k1`, a C
+//! wrapper crate, and as a result ecdsa parts from `sp-core` do not compile on
+//! certain `no-std` targets and create extremely large binary blob on others)
+//! - ecdsa pair has zeroize on drop
 
 #![no_std]
 #![deny(unused_crate_dependencies)]

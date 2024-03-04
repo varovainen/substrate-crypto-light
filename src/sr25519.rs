@@ -39,13 +39,15 @@ pub struct Pair(Keypair);
 
 impl Pair {
     pub fn from_entropy_and_pwd(entropy: &[u8], pwd: &str) -> Result<Self, Error> {
-        let big_seed = entropy_to_big_seed(entropy, pwd)?;
+        let mut big_seed = entropy_to_big_seed(entropy, pwd)?;
         let mini_secret_bytes = &big_seed[..32];
-        Ok(Pair(
+        let pair = Pair(
             MiniSecretKey::from_bytes(mini_secret_bytes)
                 .expect("static length, always fits")
                 .expand_to_keypair(ExpansionMode::Ed25519),
-        ))
+        );
+        big_seed.zeroize();
+        Ok(pair)
     }
 
     pub fn from_entropy_and_full_derivation(
