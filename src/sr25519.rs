@@ -15,9 +15,11 @@ use crate::{
 };
 
 pub const SIGNING_CTX: &[u8] = b"substrate";
+pub const PUBLIC_LEN: usize = 32;
+pub const SIGNATURE_LEN: usize = 64;
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub struct Public(pub [u8; 32]);
+pub struct Public(pub [u8; PUBLIC_LEN]);
 
 impl Public {
     pub fn verify(&self, msg: &[u8], signature: &Signature) -> bool {
@@ -32,7 +34,7 @@ impl Public {
 }
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub struct Signature(pub [u8; 64]);
+pub struct Signature(pub [u8; SIGNATURE_LEN]);
 
 #[derive(Zeroize, ZeroizeOnDrop)]
 pub struct Pair(Keypair);
@@ -130,15 +132,10 @@ impl Pair {
 #[cfg(test)]
 mod tests {
 
-    #[cfg(any(feature = "std", test))]
-    use std::format;
-
-    #[cfg(all(not(feature = "std"), not(test)))]
-    use alloc::format;
-
     use mnemonic_external::{regular::InternalWordList, WordSet};
     use rand_core::{CryptoRng, RngCore};
     use sp_core::{crypto::Pair, sr25519};
+    use std::format;
 
     use crate::common::{cut_path, ALICE_WORDS};
     use crate::sr25519::{
@@ -151,10 +148,10 @@ mod tests {
         let password = "trickytrick";
 
         // phrase and full derivation, for `sp-core` procedure
-        let phrase_with_derivations = format!("{}{}", ALICE_WORDS, derivation);
+        let phrase_with_derivations = format!("{ALICE_WORDS}{derivation}");
 
         // path and password combined, for `substrate-crypto-light` procedure
-        let path_and_pwd = format!("{}///{}", derivation, password);
+        let path_and_pwd = format!("{derivation}///{password}");
 
         // bytes to sign
         let msg = b"super important thing to sign";
@@ -211,7 +208,7 @@ mod tests {
             0u64
         }
         fn fill_bytes(&mut self, dest: &mut [u8]) {
-            zeroize::Zeroize::zeroize(dest)
+            zeroize::Zeroize::zeroize(dest);
         }
         fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand_core::Error> {
             self.fill_bytes(dest);
@@ -227,10 +224,10 @@ mod tests {
         let password = "trickytrick";
 
         // phrase and full derivation, for `sp-core` procedure
-        let phrase_with_derivations = format!("{}{}", ALICE_WORDS, derivation);
+        let phrase_with_derivations = format!("{ALICE_WORDS}{derivation}");
 
         // path and password combined, for `substrate-crypto-light` procedure
-        let path_and_pwd = format!("{}///{}", derivation, password);
+        let path_and_pwd = format!("{derivation}///{password}");
 
         // bytes to sign
         let msg = b"super important thing to sign";
