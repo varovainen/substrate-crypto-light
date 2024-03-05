@@ -1,55 +1,42 @@
-#[cfg(any(feature = "std", test))]
-use std::vec;
-
-#[cfg(all(not(feature = "std"), not(test)))]
-use alloc::vec;
-
-use k256::ecdsa::{signature::hazmat::PrehashVerifier, SigningKey, VerifyingKey};
+use ed25519_zebra::{SigningKey, VerificationKey};
 use parity_scale_codec::Encode;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::{
-    common::{blake2_256, entropy_to_big_seed, DeriveJunction, FullDerivation, HASH_256_LEN},
+    common::{entropy_to_big_seed, DeriveJunction, FullDerivation, HASH_256_LEN},
     error::Error,
 };
 
-pub const ID: &str = "Secp256k1HDKD";
-pub const PUBLIC_LEN: usize = 33;
-pub const SIGNATURE_LEN: usize = 65;
+pub const ID: &str = "Ed25519HDKD";
+pub const PUBLIC_LEN: usize = 32;
+pub const SIGNATURE_LEN: usize = 64;
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Public(pub [u8; PUBLIC_LEN]);
 
 impl Public {
     pub fn verify(&self, msg: &[u8], signature: &Signature) -> bool {
-        let Ok(signature) = k256::ecdsa::Signature::from_slice(signature.0[..64].as_ref()) else {
+        let signature = ed25519_zebra::Signature::from_bytes(&signature.0);
+        let Ok(verification_key) = VerificationKey::try_from(self.0) else {
             return false;
         };
-        let Ok(verifying_key) = VerifyingKey::from_sec1_bytes(self.0.as_ref()) else {
-            return false;
-        };
-        verifying_key
-            .verify_prehash(&blake2_256(msg), &signature)
-            .is_ok()
+        verification_key.verify(&signature, msg).is_ok()
     }
 }
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Signature(pub [u8; SIGNATURE_LEN]);
 
-#[derive(ZeroizeOnDrop)]
+#[derive(Zeroize, ZeroizeOnDrop)]
 pub struct Pair(SigningKey);
 
 impl Pair {
     pub fn from_entropy_and_pwd(entropy: &[u8], pwd: &str) -> Result<Self, Error> {
         let mut big_seed = entropy_to_big_seed(entropy, pwd)?;
         let seed = &big_seed[..32];
-        let signing_key_result = SigningKey::from_bytes(seed.as_ref().into());
+        let pair = Pair(SigningKey::try_from(seed).expect("static length, always fits"));
         big_seed.zeroize();
-        match signing_key_result {
-            Ok(signing_key) => Ok(Pair(signing_key)),
-            Err(_) => Err(Error::EcdsaPairGen),
-        }
+        Ok(pair)
     }
 
     pub fn from_entropy_and_full_derivation(
@@ -66,45 +53,25 @@ impl Pair {
                         .hash_length(HASH_256_LEN)
                         .to_state();
                     blake2b_state.update(&ID.encode());
-                    blake2b_state.update(pair.0.to_bytes().as_slice());
+                    blake2b_state.update(pair.0.as_ref());
                     blake2b_state.update(inner);
                     let bytes = blake2b_state.finalize();
                     pair = Pair(
-                        SigningKey::from_bytes(bytes.as_ref().into())
-                            .map_err(|_| Error::EcdsaPairGen)?,
+                        SigningKey::try_from(bytes.as_ref()).expect("static length, always fits"),
                     );
                 }
-                DeriveJunction::Soft(_) => return Err(Error::NoSoftDerivationEcdsa),
+                DeriveJunction::Soft(_) => return Err(Error::NoSoftDerivationEd25519),
             }
         }
         Ok(pair)
     }
 
-    pub fn sign(&self, msg: &[u8]) -> Result<Signature, Error> {
-        let (signature_ecdsa, recid) = self
-            .0
-            .sign_prehash_recoverable(&blake2_256(msg))
-            .map_err(|_| Error::EcdsaSignatureGen)?;
-        Ok(Signature(
-            [
-                signature_ecdsa.to_bytes().as_slice().to_vec(),
-                vec![recid.to_byte()],
-            ]
-            .concat()
-            .try_into()
-            .map_err(|_| Error::EcdsaSignatureLength)?,
-        ))
+    pub fn sign(&self, msg: &[u8]) -> Signature {
+        Signature(self.0.sign(msg).to_bytes())
     }
 
-    pub fn public(&self) -> Result<Public, Error> {
-        Ok(Public(
-            self.0
-                .verifying_key()
-                .to_encoded_point(true)
-                .as_bytes()
-                .try_into()
-                .map_err(|_| Error::EcdsaPublicKeyLength)?,
-        ))
+    pub fn public(&self) -> Public {
+        Public(VerificationKey::from(&self.0).into())
     }
 }
 
@@ -113,14 +80,16 @@ impl Pair {
 mod tests {
 
     use mnemonic_external::{regular::InternalWordList, WordSet};
-    use sp_core::{crypto::Pair, ecdsa};
+    use sp_core::{crypto::Pair, ed25519};
     use std::format;
 
     use crate::common::{cut_path, ALICE_WORDS};
-    use crate::ecdsa::{Pair as EcdsaPair, Public as EcdsaPublic, Signature as EcdsaSignature};
+    use crate::ed25519::{
+        Pair as Ed25519Pair, Public as Ed25519Public, Signature as Ed25519Signature,
+    };
 
     #[test]
-    fn identical_ecdsa() {
+    fn identical_ed25519() {
         let derivation = "//hard//alicealicealicealicealicealicealicealice";
         let password = "trickytrick";
 
@@ -133,9 +102,9 @@ mod tests {
         // bytes to sign
         let msg = b"super important thing to sign";
 
-        // `ecdsa` pair, public, and signature with `sp_core`
+        // `ed25519` pair, public, and signature with `sp_core`
         let pair_from_core =
-            ecdsa::Pair::from_string(&phrase_with_derivations, Some(password)).unwrap();
+            ed25519::Pair::from_string(&phrase_with_derivations, Some(password)).unwrap();
         let public_from_core = pair_from_core.public().0;
         let signature_from_core = pair_from_core.sign(msg).0;
 
@@ -150,18 +119,19 @@ mod tests {
         // full derivation, `substrate-crypto-light`
         let full_derivation = cut_path(&path_and_pwd).unwrap();
 
-        // `ecdsa` pair, public, and signature with `substrate-crypto-light`
-        let pair = EcdsaPair::from_entropy_and_full_derivation(&entropy, full_derivation).unwrap();
-        let public = pair.public().unwrap().0;
-        let signature = pair.sign(msg).unwrap().0;
+        // `ed25519` pair, public, and signature with `substrate-crypto-light`
+        let pair =
+            Ed25519Pair::from_entropy_and_full_derivation(&entropy, full_derivation).unwrap();
+        let public = pair.public().0;
+        let signature = pair.sign(msg).0;
 
         assert_eq!(public_from_core, public);
 
         // verify signature made with `substrate-crypto-light` using tools of
         // `sp-core`
-        let signature_import_into_core = ecdsa::Signature::from_raw(signature);
-        let public_import_into_core = ecdsa::Public::from_raw(public);
-        assert!(ecdsa::Pair::verify(
+        let signature_import_into_core = ed25519::Signature::from_raw(signature);
+        let public_import_into_core = ed25519::Public::from_raw(public);
+        assert!(ed25519::Pair::verify(
             &signature_import_into_core,
             msg,
             &public_import_into_core
@@ -169,8 +139,8 @@ mod tests {
 
         // verify signature made with tools of `sp-core` using tools of
         // `substrate-crypto-light`
-        let signature_import = EcdsaSignature(signature_from_core);
-        let public_import = EcdsaPublic(public_from_core);
+        let signature_import = Ed25519Signature(signature_from_core);
+        let public_import = Ed25519Public(public_from_core);
         assert!(public_import.verify(msg, &signature_import));
     }
 }
