@@ -10,7 +10,7 @@ ed25519-zebra = {version = "4.0.3", default-features = false, optional = true}
 hmac = "0.12.1"
 k256 = {version = "0.13.3", default-features = false, features = ["alloc", "ecdsa"], optional = true}
 lazy_static = {version = "1.4.0", default-features = false, features = ["spin_no_std"]}
-parity-scale-codec = {version = "3.6.9", default-features = false}
+parity-scale-codec = {version = "3.6.9", default-features = false, features = ["derive"]}
 pbkdf2 = {version = "0.12.2", default-features = false}
 rand_core = {version = "0.6.4", default-features = false, optional = true}
 regex = {version = "1.10.3", default-features = false}
