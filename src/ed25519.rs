@@ -1,5 +1,5 @@
 use ed25519_zebra::{SigningKey, VerificationKey};
-use parity_scale_codec::Encode;
+use parity_scale_codec::{Decode, Encode};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::{
@@ -11,7 +11,7 @@ pub const ID: &str = "Ed25519HDKD";
 pub const PUBLIC_LEN: usize = 32;
 pub const SIGNATURE_LEN: usize = 64;
 
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Decode, Debug, Encode, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Public(pub [u8; PUBLIC_LEN]);
 
 impl Public {
@@ -24,7 +24,7 @@ impl Public {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Decode, Debug, Encode, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Signature(pub [u8; SIGNATURE_LEN]);
 
 #[derive(Zeroize, ZeroizeOnDrop)]
@@ -33,7 +33,7 @@ pub struct Pair(SigningKey);
 impl Pair {
     pub fn from_entropy_and_pwd(entropy: &[u8], pwd: &str) -> Result<Self, Error> {
         let mut big_seed = entropy_to_big_seed(entropy, pwd)?;
-        let seed = &big_seed[..32];
+        let seed = &big_seed[..HASH_256_LEN];
         let pair = Pair(SigningKey::try_from(seed).expect("static length, always fits"));
         big_seed.zeroize();
         Ok(pair)

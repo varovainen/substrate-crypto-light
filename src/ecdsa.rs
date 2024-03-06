@@ -5,7 +5,7 @@ use std::vec;
 use alloc::vec;
 
 use k256::ecdsa::{signature::hazmat::PrehashVerifier, SigningKey, VerifyingKey};
-use parity_scale_codec::Encode;
+use parity_scale_codec::{Decode, Encode};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::{
@@ -17,7 +17,7 @@ pub const ID: &str = "Secp256k1HDKD";
 pub const PUBLIC_LEN: usize = 33;
 pub const SIGNATURE_LEN: usize = 65;
 
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Decode, Debug, Encode, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Public(pub [u8; PUBLIC_LEN]);
 
 impl Public {
@@ -34,7 +34,7 @@ impl Public {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Decode, Debug, Encode, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Signature(pub [u8; SIGNATURE_LEN]);
 
 #[derive(ZeroizeOnDrop)]
@@ -43,7 +43,7 @@ pub struct Pair(SigningKey);
 impl Pair {
     pub fn from_entropy_and_pwd(entropy: &[u8], pwd: &str) -> Result<Self, Error> {
         let mut big_seed = entropy_to_big_seed(entropy, pwd)?;
-        let seed = &big_seed[..32];
+        let seed = &big_seed[..HASH_256_LEN];
         let signing_key_result = SigningKey::from_bytes(seed.as_ref().into());
         big_seed.zeroize();
         match signing_key_result {

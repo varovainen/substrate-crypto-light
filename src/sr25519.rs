@@ -1,6 +1,7 @@
 //! Sr25519, mostly follows `sp_core::sr25519`.
 //! Also supports external Rng.
 
+use parity_scale_codec::{Decode, Encode};
 use rand_core::{CryptoRng, RngCore};
 use schnorrkel::{
     context::attach_rng,
@@ -10,7 +11,7 @@ use schnorrkel::{
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::{
-    common::{entropy_to_big_seed, DeriveJunction, FullDerivation},
+    common::{entropy_to_big_seed, DeriveJunction, FullDerivation, HASH_256_LEN},
     error::Error,
 };
 
@@ -18,7 +19,7 @@ pub const SIGNING_CTX: &[u8] = b"substrate";
 pub const PUBLIC_LEN: usize = 32;
 pub const SIGNATURE_LEN: usize = 64;
 
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Decode, Debug, Encode, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Public(pub [u8; PUBLIC_LEN]);
 
 impl Public {
@@ -33,7 +34,7 @@ impl Public {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Decode, Debug, Encode, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Signature(pub [u8; SIGNATURE_LEN]);
 
 #[derive(Zeroize, ZeroizeOnDrop)]
@@ -42,7 +43,7 @@ pub struct Pair(Keypair);
 impl Pair {
     pub fn from_entropy_and_pwd(entropy: &[u8], pwd: &str) -> Result<Self, Error> {
         let mut big_seed = entropy_to_big_seed(entropy, pwd)?;
-        let mini_secret_bytes = &big_seed[..32];
+        let mini_secret_bytes = &big_seed[..HASH_256_LEN];
         let pair = Pair(
             MiniSecretKey::from_bytes(mini_secret_bytes)
                 .expect("static length, always fits")

@@ -27,6 +27,8 @@ use crate::sr25519::{Public as Sr25519Public, PUBLIC_LEN as SR25519_PUBLIC_LEN};
 pub const ALICE_WORDS: &str =
     "bottom drive obey lake curtain smoke basket hold race lonely fit walk";
 
+pub const BIG_SEED_LEN: usize = 64;
+
 pub const HASH_256_LEN: usize = 32;
 pub const HASH_512_LEN: usize = 64;
 
@@ -56,7 +58,7 @@ fn ss58hash(data: &[u8]) -> [u8; HASH_512_LEN] {
 }
 
 /// Verbatim from `substrate-bip39`.
-pub fn entropy_to_big_seed(entropy: &[u8], password: &str) -> Result<[u8; 64], Error> {
+pub fn entropy_to_big_seed(entropy: &[u8], password: &str) -> Result<[u8; BIG_SEED_LEN], Error> {
     if entropy.len() < 16 || entropy.len() > 32 || entropy.len() % 4 != 0 {
         return Err(Error::InvalidEntropy);
     }
@@ -65,7 +67,7 @@ pub fn entropy_to_big_seed(entropy: &[u8], password: &str) -> Result<[u8; 64], E
     salt.push_str("mnemonic");
     salt.push_str(password);
 
-    let mut seed = [0u8; 64];
+    let mut seed = [0u8; BIG_SEED_LEN];
 
     let result = pbkdf2::<Hmac<Sha512>>(entropy, salt.as_bytes(), 2048, &mut seed);
 
