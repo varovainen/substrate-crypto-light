@@ -21,7 +21,7 @@ zeroize = {version = "1.7.0", features = ["derive"]}
 [dev-dependencies]
 hex = "0.4.3"
 mnemonic-external = {git = "https://github.com/Alzymologist/mnemonic-external"}
-sp-core = "30.0.0"
+sp-core = "34.0.0"
 
 [features]
 default = ["ed25519", "ecdsa", "sr25519", "std"]
