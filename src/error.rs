@@ -2,7 +2,6 @@
 use std::fmt::{Debug, Display, Formatter, Result};
 
 #[derive(Debug)]
-#[cfg_attr(feature = "std", derive(thiserror::Error))]
 pub enum Error {
     Base58Checksum,
     Base58Decoding(base58::FromBase58Error),
