@@ -42,3 +42,5 @@ jobs:
 
       - name:                 cargo nextest
         run:                  cargo nextest run
+        run:                  cargo nextest run --no-default-features
+        run:                  cargo nextest run --no-default-features --features sr25519
