@@ -40,7 +40,11 @@ jobs:
       - name:                 Rust Cache
         uses:                 Swatinem/rust-cache@v2.7.3
 
-      - name:                 cargo nextest
-        run:                  cargo nextest run
-        run:                  cargo nextest run --no-default-features
-        run:                  cargo nextest run --no-default-features --features sr25519
+      - name: cargo nextest (default)
+        run: cargo nextest run
+
+      - name: cargo nextest (no-default-features)
+        run: cargo nextest run --no-default-features
+
+      - name: cargo nextest (sr25519 feature)
+        run: cargo nextest run --no-default-features --features sr25519
