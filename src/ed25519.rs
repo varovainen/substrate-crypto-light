@@ -75,13 +75,18 @@ impl Pair {
     }
 }
 
-#[cfg(any(feature = "std", test))]
+#[cfg(feature = "std")]
 #[cfg(test)]
 mod tests {
 
     use mnemonic_external::{regular::InternalWordList, WordSet};
     use sp_core::{crypto::Pair, ed25519};
+
+    #[cfg(feature = "std")]
     use std::format;
+
+    #[cfg(not(feature = "std"))]
+    use alloc::format;
 
     use crate::common::{cut_path, ALICE_WORDS};
     use crate::ed25519::{

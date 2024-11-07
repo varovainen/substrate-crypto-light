@@ -1,7 +1,7 @@
-#[cfg(any(feature = "std", test))]
+#[cfg(feature = "std")]
 use std::{string::String, vec, vec::Vec};
 
-#[cfg(all(not(feature = "std"), not(test)))]
+#[cfg(not(feature = "std"))]
 use alloc::{string::String, vec, vec::Vec};
 
 use base58::{FromBase58, ToBase58};
