@@ -1,5 +1,8 @@
 #[cfg(feature = "std")]
-use std::{fmt::{Debug, Display, Formatter, Result as FmtResult}, string::String};
+use std::{
+    fmt::{Debug, Display, Formatter, Result as FmtResult},
+    string::String,
+};
 
 #[cfg(not(feature = "std"))]
 use alloc::string::String;
@@ -33,7 +36,9 @@ impl Error {
     fn error_text(&self) -> String {
         match self {
             Error::Base58Checksum => String::from("Base58 checksum mismatch"),
-            Error::Base58Decoding(from_base58_error) => format!("Base58 decoding error: {:?}", from_base58_error),
+            Error::Base58Decoding(from_base58_error) => {
+                format!("Base58 decoding error: {:?}", from_base58_error)
+            }
             Error::Base58Length => String::from("Invalid base58 address length"),
             Error::Base58Prefix => String::from("Invalid base58 prefix value"),
             #[cfg(feature = "ecdsa")]
@@ -44,12 +49,18 @@ impl Error {
             Error::EcdsaSignatureGen => String::from("Signing failed"),
             #[cfg(feature = "ecdsa")]
             Error::EcdsaSignatureLength => String::from("Invalid ecdsa signature size"),
-            Error::InvalidEntropy => String::from("Invalid entropy size, only 16, 20, 24, 28, and 32 bytes are supported"),
+            Error::InvalidEntropy => String::from(
+                "Invalid entropy size, only 16, 20, 24, 28, and 32 bytes are supported",
+            ),
             #[cfg(feature = "ecdsa")]
             Error::NoSoftDerivationEcdsa => String::from("Soft derivation is impossible for ecdsa"),
             #[cfg(feature = "ed25519")]
-            Error::NoSoftDerivationEd25519 => String::from("Soft derivation is impossible for ed25519"),
-            Error::Pbkdf2Internal => String::from("Pbkdf2 hashing internal error, please report this"),
+            Error::NoSoftDerivationEd25519 => {
+                String::from("Soft derivation is impossible for ed25519")
+            }
+            Error::Pbkdf2Internal => {
+                String::from("Pbkdf2 hashing internal error, please report this")
+            }
         }
     }
 }
@@ -62,4 +73,3 @@ impl Display for Error {
 
 #[cfg(feature = "std")]
 impl std::error::Error for Error {}
-

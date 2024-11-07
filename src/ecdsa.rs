@@ -115,10 +115,10 @@ mod tests {
     use mnemonic_external::{regular::InternalWordList, WordSet};
     use sp_core::{crypto::Pair, ecdsa};
 
-    #[cfg(feature="std")]
+    #[cfg(feature = "std")]
     use std::format;
 
-    #[cfg(not(feature="std"))]
+    #[cfg(not(feature = "std"))]
     use alloc::format;
 
     use crate::common::{cut_path, ALICE_WORDS};

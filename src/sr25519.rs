@@ -136,10 +136,10 @@ mod tests {
     use rand_core::{CryptoRng, RngCore};
     use sp_core::{crypto::Pair, sr25519};
 
-    #[cfg(feature="std")]
+    #[cfg(feature = "std")]
     use std::format;
 
-    #[cfg(not(feature="std"))]
+    #[cfg(not(feature = "std"))]
     use alloc::format;
 
     use crate::common::{cut_path, ALICE_WORDS};
