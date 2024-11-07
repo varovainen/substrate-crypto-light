@@ -14,11 +14,16 @@
 #![no_std]
 #![deny(unused_crate_dependencies)]
 
-#[cfg(any(feature = "std", test))]
+#[cfg(feature = "std")]
+#[macro_use]
 extern crate std;
 
-#[cfg(all(not(feature = "std"), not(test)))]
+#[cfg(not(feature = "std"))]
+#[macro_use]
 extern crate alloc;
+
+#[cfg(not(feature = "std"))]
+extern crate core;
 
 pub mod common;
 #[cfg(feature = "ecdsa")]
