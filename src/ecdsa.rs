@@ -124,11 +124,7 @@ mod tests {
     use crate::common::{cut_path, ALICE_WORDS};
     use crate::ecdsa::{Pair as EcdsaPair, Public as EcdsaPublic, Signature as EcdsaSignature};
 
-    #[test]
-    fn identical_ecdsa() {
-        let derivation = "//hard//alicealicealicealicealicealicealicealice";
-        let password = "trickytrick";
-
+    fn identical_ecdsa(derivation: &str, password: &str) {
         // phrase and full derivation, for `sp-core` procedure
         let phrase_with_derivations = format!("{ALICE_WORDS}{derivation}");
 
@@ -177,5 +173,18 @@ mod tests {
         let signature_import = EcdsaSignature(signature_from_core);
         let public_import = EcdsaPublic(public_from_core);
         assert!(public_import.verify(msg, &signature_import));
+    }
+
+    #[test]
+    fn test_identical_ecdsa_1() {
+        identical_ecdsa(
+            "//hard//alicealicealicealicealicealicealicealice",
+            "trickytrick",
+        )
+    }
+
+    #[test]
+    fn test_identical_ecdsa_2() {
+        identical_ecdsa("//1", "pwd")
     }
 }

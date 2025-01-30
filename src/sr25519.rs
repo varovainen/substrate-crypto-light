@@ -147,11 +147,7 @@ mod tests {
         Pair as Sr25529Pair, Public as Sr25519Public, Signature as Sr25519Signature,
     };
 
-    #[test]
-    fn identical_sr25519() {
-        let derivation = "//hard/soft//alicealicealicealicealicealicealicealice";
-        let password = "trickytrick";
-
+    fn identical_sr25519(derivation: &str, password: &str) {
         // phrase and full derivation, for `sp-core` procedure
         let phrase_with_derivations = format!("{ALICE_WORDS}{derivation}");
 
@@ -223,11 +219,7 @@ mod tests {
 
     impl CryptoRng for DummyRng {}
 
-    #[test]
-    fn identical_sr25519_external_rng() {
-        let derivation = "//hard/soft//alicealicealicealicealicealicealicealice";
-        let password = "trickytrick";
-
+    fn identical_sr25519_external_rng(derivation: &str, password: &str) {
         // phrase and full derivation, for `sp-core` procedure
         let phrase_with_derivations = format!("{ALICE_WORDS}{derivation}");
 
@@ -275,5 +267,31 @@ mod tests {
             msg,
             &public_import_into_core
         ));
+    }
+
+    #[test]
+    fn test_identical_sr25519_1() {
+        identical_sr25519(
+            "//hard/soft//alicealicealicealicealicealicealicealice",
+            "trickytrick",
+        )
+    }
+
+    #[test]
+    fn test_identical_sr25519_2() {
+        identical_sr25519("//1", "pwd")
+    }
+
+    #[test]
+    fn test_identical_sr25519_1_external() {
+        identical_sr25519_external_rng(
+            "//hard/soft//alicealicealicealicealicealicealicealice",
+            "trickytrick",
+        )
+    }
+
+    #[test]
+    fn test_identical_sr25519_2_external() {
+        identical_sr25519_external_rng("//1", "pwd")
     }
 }
