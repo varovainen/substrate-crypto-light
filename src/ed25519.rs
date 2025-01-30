@@ -93,11 +93,7 @@ mod tests {
         Pair as Ed25519Pair, Public as Ed25519Public, Signature as Ed25519Signature,
     };
 
-    #[test]
-    fn identical_ed25519() {
-        let derivation = "//hard//alicealicealicealicealicealicealicealice";
-        let password = "trickytrick";
-
+    fn identical_ed25519(derivation: &str, password: &str) {
         // phrase and full derivation, for `sp-core` procedure
         let phrase_with_derivations = format!("{ALICE_WORDS}{derivation}");
 
@@ -147,5 +143,18 @@ mod tests {
         let signature_import = Ed25519Signature(signature_from_core);
         let public_import = Ed25519Public(public_from_core);
         assert!(public_import.verify(msg, &signature_import));
+    }
+
+    #[test]
+    fn test_identical_ed25519_1() {
+        identical_ed25519(
+            "//hard//alicealicealicealicealicealicealicealice",
+            "trickytrick",
+        )
+    }
+
+    #[test]
+    fn test_identical_ed25519_2() {
+        identical_ed25519("//1", "pwd")
     }
 }

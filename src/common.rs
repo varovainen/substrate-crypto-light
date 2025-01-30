@@ -140,10 +140,23 @@ pub fn cut_path(path_and_pwd: &str) -> Option<FullDerivation<'_>> {
                         .captures_iter(path.as_str())
                         .map(|caps| {
                             let derivation = caps.name("derivation").expect("");
-                            if derivation.as_str().starts_with('/') {
-                                DeriveJunction::hard(&derivation.as_str()[1..])
+                            let (is_hard, derivation_body) = {
+                                if derivation.as_str().starts_with('/') {
+                                    (true, &derivation.as_str()[1..])
+                                } else {
+                                    (false, derivation.as_str())
+                                }
+                            };
+                            if let Ok(number) = str::parse::<u64>(derivation_body) {
+                                if is_hard {
+                                    DeriveJunction::hard(number)
+                                } else {
+                                    DeriveJunction::soft(number)
+                                }
+                            } else if is_hard {
+                                DeriveJunction::hard(derivation_body)
                             } else {
-                                DeriveJunction::soft(derivation.as_str())
+                                DeriveJunction::soft(derivation_body)
                             }
                         })
                         .collect()
