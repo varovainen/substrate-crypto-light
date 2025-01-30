@@ -2,7 +2,7 @@
 name = "substrate-crypto-light"
 description = "Cryptographic code for Substrate chains in pure rust with better baremetal support"
 license = "GPL-3.0-or-later"
-version = "0.1.0"
+version = "0.2.0"
 authors = [
     "Alexander Slesarev <slesarew@gmail.com>",
     "Vera Abramova <abramova.vera@gmail.com>",
